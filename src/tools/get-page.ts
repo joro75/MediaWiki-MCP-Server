@@ -21,9 +21,7 @@ const inputSchema = {
 			'Whether to include metadata (page ID, revision info, size, section outline) in the response',
 		),
 	section: z
-		.number()
-		.int()
-		.nonnegative()
+		.union([z.number().int().nonnegative(), z.literal(undefined)])
 		.optional()
 		.describe(
 			'Section number (0 = lead; 1..N = heading sections). Narrows content to one section.',
@@ -46,10 +44,11 @@ export const getPage: Tool<typeof inputSchema> = {
 	target: (a) => a.title,
 
 	async handle({ title, content, metadata, section }, ctx: ToolContext): Promise<CallToolResult> {
+		const sectionNumber = typeof section === 'number' ? section : undefined;
 		if (content === ContentFormat.none && !metadata) {
 			return ctx.format.invalidInput('When content is set to "none", metadata must be true');
 		}
-		if (section !== undefined && content === ContentFormat.none) {
+		if (sectionNumber !== undefined && content === ContentFormat.none) {
 			return ctx.format.invalidInput('section is not compatible with content="none"');
 		}
 
@@ -80,8 +79,8 @@ export const getPage: Tool<typeof inputSchema> = {
 				? 'ids|timestamp|contentmodel|size|content'
 				: 'ids|timestamp|contentmodel|size';
 			const readParams: Record<string, string | number> = { rvprop };
-			if (needsSource && section !== undefined) {
-				readParams.rvsection = section;
+			if (needsSource && sectionNumber !== undefined) {
+				readParams.rvsection = sectionNumber;
 			}
 			const page = await mwn.read(title, readParams);
 
@@ -137,8 +136,8 @@ export const getPage: Tool<typeof inputSchema> = {
 				prop: 'text',
 				formatversion: '2',
 			};
-			if (section !== undefined) {
-				parseParams.section = section;
+			if (sectionNumber !== undefined) {
+				parseParams.section = String(sectionNumber);
 			}
 			const parseResult = await mwn.request(parseParams);
 			const html: string | undefined = parseResult.parse?.text;
