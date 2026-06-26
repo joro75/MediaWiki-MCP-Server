@@ -21,9 +21,8 @@ const inputSchema = {
 			'Whether to include metadata (page ID, revision info, size, section outline) in the response',
 		),
 	section: z
-		.union([z.number().int().nonnegative(), z.literal('')])
+		.union([z.number().int().nonnegative(), z.string()])
 		.optional()
-		.default('')
 		.describe(
 			'Section number (0 = lead; 1..N = heading sections). Narrows content to one section.',
 		),
