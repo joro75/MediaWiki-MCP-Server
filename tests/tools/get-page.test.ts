@@ -242,6 +242,40 @@ describe('get-page', () => {
 		);
 	});
 
+	it('returns the complete page when section is omitted', async () => {
+		const read = vi.fn().mockResolvedValue({
+			pageid: 1,
+			title: 'Test Page',
+			revisions: [
+				{
+					revid: 42,
+					timestamp: '2026-01-01T00:00:00Z',
+					contentmodel: 'wikitext',
+					content: 'Full page content',
+				},
+			],
+		});
+		const mock = createMockMwn({ read });
+		const ctx = fakeContext({ mwn: async () => mock as never });
+
+		const result = await getPage.handle(
+			{
+				title: 'Test Page',
+				content: ContentFormat.source,
+				metadata: false,
+			},
+			ctx,
+		);
+
+		const text = assertStructuredSuccess(result);
+		expect(text).toContain('Source: Full page content');
+		expect(text).not.toContain('Section HTML');
+		expect(read).toHaveBeenCalledWith(
+			'Test Page',
+			expect.not.objectContaining({ rvsection: expect.anything() }),
+		);
+	});
+
 	it('rejects section with content="none"', async () => {
 		const ctx = fakeContext();
 
