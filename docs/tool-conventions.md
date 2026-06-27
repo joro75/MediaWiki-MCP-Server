@@ -246,7 +246,7 @@ upstream_failure: Failed to create page: The wiki is currently in read-only mode
 
 When writing or updating a tool in these pairs, each side's description should explicitly say when to use it vs. the other:
 
-- **`get-page` vs `get-pages`** — single page (supports full content formats including HTML) vs. batch (up to 50 pages, source or none).
+- **`get-page` vs `get-pages`** — single page (supports full content formats including HTML) vs. batch (up to 50 pages, source or none). `get-page` uses `section=0` for the full page, `section=1` for the lead, and `section>=2` for named sections.
 - **`search-page` vs `search-page-by-prefix`** — full-text content search vs. title-prefix search.
 - **`get-revision` vs `get-page` with `metadata=true`** — fetch a specific historical revision vs. fetch the latest revision with metadata attached.
 - **`compare-pages` vs. client-side diff** — `compare-pages` computes the diff server-side and returns a compact text diff; prefer it over fetching both sources and diffing locally.

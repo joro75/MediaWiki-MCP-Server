@@ -33,7 +33,7 @@ const inputSchema = {
 		.union([z.number().int().nonnegative(), z.literal('new')])
 		.optional()
 		.describe(
-			"Section to edit: 0 (lead), 1..N (existing heading sections), or 'new' to append a new heading section.",
+			"Section to edit: 0 (full page), 1 (lead), 2..N (existing heading sections), or 'new' to append a new heading section.",
 		),
 	mode: z
 		.enum(['append', 'prepend'])
@@ -80,6 +80,12 @@ function buildEditParams({
 }: UpdatePageArgs): Record<string, string | number | boolean> {
 	const sourceField =
 		mode === 'append' ? 'appendtext' : mode === 'prepend' ? 'prependtext' : 'text';
+	const apiSection =
+		section === 'new'
+			? 'new'
+			: typeof section === 'number' && section > 0
+				? section - 1
+				: undefined;
 	return {
 		action: 'edit',
 		title,
@@ -87,7 +93,7 @@ function buildEditParams({
 		nocreate: true,
 		[sourceField]: source,
 		...(latestId !== undefined ? { baserevid: latestId } : {}),
-		...(section !== undefined ? { section: String(section) } : {}),
+		...(apiSection !== undefined ? { section: String(apiSection) } : {}),
 		...(sectionTitle !== undefined ? { sectiontitle: sectionTitle } : {}),
 		...(bot === true ? { bot: true } : {}),
 	};
@@ -96,7 +102,7 @@ function buildEditParams({
 export const updatePage: Tool<typeof inputSchema> = {
 	name: 'update-page',
 	description:
-		"Replaces the existing content of a wiki page and returns the new revision ID. Fails if the page does not exist; for new pages, use create-page. Pass latestId (obtained from get-page with metadata=true) to enable edit-conflict detection: if the page has been edited since that revision, the update is rejected rather than silently clobbering concurrent changes. For large pages, three modifiers avoid shipping the full source: section=N edits one section (pairs with get-page section=N for reads), section='new' adds a new heading section, and mode='append' or 'prepend' sends a delta. Each call is a separate revision; for chains of mode='append' calls, re-fetching latestId between calls confirms the previous chunk landed before the next.",
+		"Replaces the existing content of a wiki page and returns the new revision ID. Fails if the page does not exist; for new pages, use create-page. Pass latestId (obtained from get-page with metadata=true) to enable edit-conflict detection: if the page has been edited since that revision, the update is rejected rather than silently clobbering concurrent changes. For large pages, three modifiers avoid shipping the full source: section=0 replaces the full page, section=1 edits the lead, section=2..N edits named sections (pairs with get-page section=0/1..N for reads), section='new' adds a new heading section, and mode='append' or 'prepend' sends a delta. Each call is a separate revision; for chains of mode='append' calls, re-fetching latestId between calls confirms the previous chunk landed before the next.",
 	inputSchema,
 	annotations: {
 		title: 'Update page',

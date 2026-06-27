@@ -178,7 +178,7 @@ describe('get-page', () => {
 		expect(envelope.message).toContain('API error');
 	});
 
-	it('forwards section as rvsection for source content', async () => {
+	it('forwards section as rvsection offset by one for source content', async () => {
 		const read = vi.fn().mockResolvedValue({
 			pageid: 1,
 			title: 'Test Page',
@@ -209,12 +209,43 @@ describe('get-page', () => {
 		expect(read).toHaveBeenCalledWith(
 			'Test Page',
 			expect.objectContaining({
-				rvsection: 2,
+				rvsection: 1,
 			}),
 		);
 	});
 
-	it('forwards section as parse section for html content', async () => {
+	it('does not forward rvsection when section=0 for source content', async () => {
+		const read = vi.fn().mockResolvedValue({
+			pageid: 1,
+			title: 'Test Page',
+			revisions: [
+				{
+					revid: 42,
+					timestamp: '2026-01-01T00:00:00Z',
+					contentmodel: 'wikitext',
+					content: 'Full page body',
+				},
+			],
+		});
+		const mock = createMockMwn({ read });
+		const ctx = fakeContext({ mwn: async () => mock as never });
+
+		const result = await getPage.handle(
+			{
+				title: 'Test Page',
+				content: ContentFormat.source,
+				metadata: false,
+				section: 0,
+			},
+			ctx,
+		);
+
+		const text = assertStructuredSuccess(result);
+		expect(text).toContain('Source: Full page body');
+		expect(read.mock.calls[0][1]).not.toHaveProperty('rvsection');
+	});
+
+	it('forwards section as parse section offset by one for html content', async () => {
 		const request = vi.fn().mockResolvedValue({
 			parse: { text: '<p>Section HTML</p>' },
 		});
@@ -237,9 +268,34 @@ describe('get-page', () => {
 			expect.objectContaining({
 				action: 'parse',
 				page: 'Test Page',
-				section: 1,
+				section: 0,
 			}),
 		);
+	});
+
+	it('does not forward parse section when section=0 for html content', async () => {
+		const request = vi.fn().mockResolvedValue({
+			parse: { text: '<p>Full page HTML</p>' },
+		});
+		const mock = createMockMwn({ request });
+		const ctx = fakeContext({ mwn: async () => mock as never });
+
+		const result = await getPage.handle(
+			{
+				title: 'Test Page',
+				content: ContentFormat.html,
+				metadata: false,
+				section: 0,
+			},
+			ctx,
+		);
+
+		const text = assertStructuredSuccess(result);
+		expect(text).toContain('HTML: <p>Full page HTML</p>');
+		expect(request).toHaveBeenCalledWith(
+			expect.objectContaining({ action: 'parse', page: 'Test Page' }),
+		);
+		expect(request.mock.calls[0][0]).not.toHaveProperty('section');
 	});
 
 	it('rejects section with content="none"', async () => {
@@ -297,7 +353,7 @@ describe('get-page', () => {
 		expect(read).toHaveBeenCalledWith(
 			'Test Page',
 			expect.objectContaining({
-				rvsection: 1,
+				rvsection: 0,
 			}),
 		);
 	});

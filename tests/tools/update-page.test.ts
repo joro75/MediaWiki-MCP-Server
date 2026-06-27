@@ -190,7 +190,38 @@ describe('update-page', () => {
 	});
 
 	describe('section editing', () => {
-		it("forwards section=2 as section='2' with text=source", async () => {
+		it('forwards section=0 without section for full-page replacement', async () => {
+			const { submit, ctx } = fakeEdit();
+
+			await updatePage.handle(
+				{
+					title: 'My Page',
+					source: 'full page body',
+					section: 0,
+				},
+				ctx,
+			);
+
+			expect(submit.mock.calls[0][1]).toMatchObject({ text: 'full page body' });
+			expect(submit.mock.calls[0][1]).not.toHaveProperty('section');
+		});
+
+		it('forwards section=1 as section=0 for lead replacement', async () => {
+			const { submit, ctx } = fakeEdit();
+
+			await updatePage.handle(
+				{
+					title: 'My Page',
+					source: 'lead intro',
+					section: 1,
+				},
+				ctx,
+			);
+
+			expect(submit.mock.calls[0][1]).toMatchObject({ section: '0', text: 'lead intro' });
+		});
+
+		it("forwards section=2 as section='1' with text=source", async () => {
 			const { submit, ctx } = fakeEdit();
 
 			const result = await updatePage.handle(
@@ -204,17 +235,17 @@ describe('update-page', () => {
 
 			expect(result.isError).toBeFalsy();
 			const params = submit.mock.calls[0][1];
-			expect(params).toMatchObject({ section: '2', text: 'new section body' });
+			expect(params).toMatchObject({ section: '1', text: 'new section body' });
 		});
 
-		it("forwards section=0 (lead) as section='0'", async () => {
+		it("forwards section=1 (lead) as section='0'", async () => {
 			const { submit, ctx } = fakeEdit();
 
 			await updatePage.handle(
 				{
 					title: 'My Page',
 					source: 'lead',
-					section: 0,
+					section: 1,
 				},
 				ctx,
 			);
@@ -359,7 +390,7 @@ describe('update-page', () => {
 				{
 					title: 'My Page',
 					source: '\n* row',
-					section: 2,
+					section: 3,
 					mode: 'append',
 				},
 				ctx,
@@ -451,7 +482,7 @@ describe('update-page', () => {
 			const { submit, ctx } = fakeEdit();
 
 			await updatePage.handle(
-				{ title: 'My Page', source: '\n* row', section: 2, mode: 'append', bot: true },
+				{ title: 'My Page', source: '\n* row', section: 3, mode: 'append', bot: true },
 				ctx,
 			);
 

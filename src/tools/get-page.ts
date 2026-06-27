@@ -26,14 +26,14 @@ const inputSchema = {
 		.nonnegative()
 		.optional()
 		.describe(
-			'Section number (0 = lead; 1..N = heading sections). Narrows content to one section.',
+			'Section number (0 = full page, 1 = lead, 2..N = heading sections). Narrows content to one section.',
 		),
 } as const;
 
 export const getPage: Tool<typeof inputSchema> = {
 	name: 'get-page',
 	description:
-		'Returns a single wiki page (wikitext source, rendered HTML, or metadata only). If the title does not exist, an error is returned. Use metadata=true to retrieve the revision ID (for edit-conflict detection), page size, and section outline. Set content="none" to fetch only metadata. Large content is truncated at 50000 bytes by default with a trailing marker listing available sections; a follow-up call with section=N fetches a specific section. For more than one page at a time, use get-pages. For a specific historical revision, use get-revision.',
+		'Returns a single wiki page (wikitext source, rendered HTML, or metadata only). If the title does not exist, an error is returned. Use metadata=true to retrieve the revision ID (for edit-conflict detection), page size, and section outline. Set content="none" to fetch only metadata. Large content is truncated at 50000 bytes by default with a trailing marker listing available sections; a follow-up call with section=1..N fetches a specific section, while section=0 returns the full page source or HTML without section slicing. For more than one page at a time, use get-pages. For a specific historical revision, use get-revision.',
 	inputSchema,
 	annotations: {
 		title: 'Get page',
@@ -76,12 +76,13 @@ export const getPage: Tool<typeof inputSchema> = {
 		let sections: string[] | undefined;
 
 		if (needsReadCall) {
+			const apiSection = section !== undefined && section > 0 ? section - 1 : undefined;
 			const rvprop = needsSource
 				? 'ids|timestamp|contentmodel|size|content'
 				: 'ids|timestamp|contentmodel|size';
 			const readParams: Record<string, string | number> = { rvprop };
-			if (needsSource && section !== undefined) {
-				readParams.rvsection = section;
+			if (needsSource && apiSection !== undefined) {
+				readParams.rvsection = apiSection;
 			}
 			const page = await mwn.read(title, readParams);
 
@@ -137,8 +138,8 @@ export const getPage: Tool<typeof inputSchema> = {
 				prop: 'text',
 				formatversion: '2',
 			};
-			if (section !== undefined) {
-				parseParams.section = section;
+			if (section !== undefined && section > 0) {
+				parseParams.section = section - 1;
 			}
 			const parseResult = await mwn.request(parseParams);
 			const html: string | undefined = parseResult.parse?.text;
