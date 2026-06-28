@@ -103,6 +103,77 @@ describe('update-page', () => {
 			expect(params).not.toHaveProperty('baserevid');
 		});
 
+		it('treats an empty-string mode as omitted so section="new" uses the default overwrite behavior', async () => {
+			const { submit, ctx } = fakeEdit();
+
+			const result = await updatePage.handle(
+				{
+					title: 'My Page',
+					source: 'new section content',
+					section: 'new',
+					sectionTitle: 'New Section',
+					mode: '' as never,
+				},
+				ctx,
+			);
+
+			expect(result.isError).toBeFalsy();
+			expect(submit.mock.calls[0][1]).toMatchObject({
+				section: 'new',
+				sectiontitle: 'New Section',
+				text: 'new section content',
+			});
+		});
+
+		it('treats latestId=0 as omitted so no baserevid is sent', async () => {
+			const { submit, ctx } = fakeEdit();
+
+			await updatePage.handle(
+				{
+					title: 'My Page',
+					source: 'content',
+					latestId: 0,
+				},
+				ctx,
+			);
+
+			const params = submit.mock.calls[0][1];
+			expect(params).not.toHaveProperty('baserevid');
+		});
+
+		it('treats an empty-string comment as omitted', async () => {
+			const { submit, ctx } = fakeEdit();
+
+			await updatePage.handle(
+				{
+					title: 'My Page',
+					source: 'content',
+					comment: '',
+				},
+				ctx,
+			);
+
+			const params = submit.mock.calls[0][1];
+			expect(params.summary).toBe('Automated edit (via update-page on MediaWiki MCP Server)');
+		});
+
+		it('treats an empty-string sectionTitle as omitted when section="new"', async () => {
+			const { ctx } = fakeEdit();
+
+			const result = await updatePage.handle(
+				{
+					title: 'My Page',
+					source: 'body',
+					section: 'new',
+					sectionTitle: '',
+				},
+				ctx,
+			);
+
+			const envelope = assertStructuredError(result, 'invalid_input');
+			expect(envelope.message).toContain("sectionTitle is required when section='new'");
+		});
+
 		it('returns error when the API response lacks a Success result', async () => {
 			const { ctx } = fakeEdit({
 				edit: { result: 'Failure', code: 'abusefilter-disallowed' },

@@ -87,6 +87,24 @@ describe('get-recent-changes — parameter mapping', () => {
 		expect(mock.request.mock.calls[0][0].rcexcludeuser).toBe('Bob');
 	});
 
+	it('treats an empty-string excludeUser as omitted', async () => {
+		const { mock, ctx } = setup({ query: { recentchanges: [] } });
+		const result = await getRecentChanges.handle({ user: 'Alice', excludeUser: '' }, ctx);
+
+		expect(result.isError).toBeFalsy();
+		expect(mock.request.mock.calls[0][0]).toMatchObject({ rcuser: 'Alice' });
+		expect(mock.request.mock.calls[0][0]).not.toHaveProperty('rcexcludeuser');
+	});
+
+	it('treats an empty-string user as omitted when excludeUser is set', async () => {
+		const { mock, ctx } = setup({ query: { recentchanges: [] } });
+		const result = await getRecentChanges.handle({ user: '', excludeUser: 'Bob' }, ctx);
+
+		expect(result.isError).toBeFalsy();
+		expect(mock.request.mock.calls[0][0]).toMatchObject({ rcexcludeuser: 'Bob' });
+		expect(mock.request.mock.calls[0][0]).not.toHaveProperty('rcuser');
+	});
+
 	it('composes hide flags into a pipe-joined rcshow', async () => {
 		const { mock, ctx } = setup({ query: { recentchanges: [] } });
 		await getRecentChanges.handle(

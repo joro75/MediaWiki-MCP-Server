@@ -36,10 +36,10 @@ const inputSchema = {
 			"Section to edit: 0 (full page), 1 (lead), 2..N (existing heading sections), or 'new' to append a new heading section.",
 		),
 	mode: z
-		.enum(['append', 'prepend'])
+		.union([z.enum(['append', 'prepend', 'overwrite']), z.literal('')])
 		.optional()
 		.describe(
-			"Adds source to the existing content instead of replacing it: 'append' to the end, 'prepend' to the start.",
+			"Editing mode: 'append' to the end, 'prepend' to the start, or 'overwrite' (default) to replace the target content.",
 		),
 	sectionTitle: z
 		.string()
@@ -55,8 +55,20 @@ const inputSchema = {
 
 type UpdatePageArgs = z.infer<z.ZodObject<typeof inputSchema>>;
 
+function normalizeArgs(args: UpdatePageArgs): UpdatePageArgs {
+	const latestId = args.latestId === 0 ? undefined : args.latestId;
+	const mode = args.mode === '' || args.mode === undefined ? 'overwrite' : args.mode;
+	return {
+		...args,
+		latestId,
+		comment: args.comment === '' ? undefined : args.comment,
+		sectionTitle: args.sectionTitle === '' ? undefined : args.sectionTitle,
+		mode,
+	};
+}
+
 function validateArgs({ section, mode, sectionTitle }: UpdatePageArgs): string | undefined {
-	if (section === 'new' && mode !== undefined) {
+	if (section === 'new' && mode !== undefined && mode !== 'overwrite') {
 		return "mode is not compatible with section='new'";
 	}
 	if (section === 'new' && sectionTitle === undefined) {
@@ -115,7 +127,8 @@ export const updatePage: Tool<typeof inputSchema> = {
 	target: (a) => a.title,
 
 	async handle(args, ctx: ToolContext): Promise<CallToolResult> {
-		const validationError = validateArgs(args);
+		const normalizedArgs = normalizeArgs(args);
+		const validationError = validateArgs(normalizedArgs);
 		if (validationError) {
 			return ctx.format.invalidInput(validationError);
 		}
@@ -123,7 +136,9 @@ export const updatePage: Tool<typeof inputSchema> = {
 		const mwn = await ctx.mwn();
 		const response =
 			// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- mwn API response shape; trusted at this boundary
-			(await ctx.edit.submit(mwn, buildEditParams(args))) as { edit?: ApiEditResponse } | undefined;
+			(await ctx.edit.submit(mwn, buildEditParams(normalizedArgs))) as
+				| { edit?: ApiEditResponse }
+				| undefined;
 		const edit = response?.edit;
 		if (!edit || edit.result !== 'Success') {
 			return ctx.format.error(
@@ -131,14 +146,14 @@ export const updatePage: Tool<typeof inputSchema> = {
 				`Failed to update page: ${JSON.stringify(edit ?? response)}`,
 			);
 		}
-		const resolvedTitle = edit.title ?? args.title;
+		const resolvedTitle = edit.title ?? normalizedArgs.title;
 		return ctx.format.ok({
 			pageId: edit.pageid,
 			title: resolvedTitle,
 			latestRevisionId: edit.newrevid,
 			latestRevisionTimestamp: edit.newtimestamp,
 			contentModel: edit.contentmodel,
-			...(args.bot === true ? { botMarked: await ctx.edit.botRight(mwn) } : {}),
+			...(normalizedArgs.bot === true ? { botMarked: await ctx.edit.botRight(mwn) } : {}),
 			url: await buildPageUrl(ctx, resolvedTitle),
 		});
 	},

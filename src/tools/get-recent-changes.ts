@@ -56,6 +56,10 @@ const inputSchema = {
 
 type RecentChangesArgs = z.infer<z.ZodObject<typeof inputSchema>>;
 
+function normalizeOptionalString(value: string | undefined): string | undefined {
+	return value === '' ? undefined : value;
+}
+
 interface RecentChange {
 	type: 'edit' | 'new' | 'log' | 'categorize' | 'external';
 	title: string;
@@ -116,7 +120,14 @@ export const getRecentChanges: Tool<typeof inputSchema> = {
 	failureVerb: 'retrieve recent changes',
 
 	async handle(args, ctx: ToolContext): Promise<CallToolResult> {
-		if (args.user && args.excludeUser) {
+		const since = normalizeOptionalString(args.since);
+		const until = normalizeOptionalString(args.until);
+		const user = normalizeOptionalString(args.user);
+		const excludeUser = normalizeOptionalString(args.excludeUser);
+		const tag = normalizeOptionalString(args.tag);
+		const continueToken = normalizeOptionalString(args.continue);
+
+		if (user && excludeUser) {
 			return ctx.format.invalidInput('user and excludeUser are mutually exclusive');
 		}
 
@@ -136,30 +147,30 @@ export const getRecentChanges: Tool<typeof inputSchema> = {
 			formatversion: '2',
 		};
 
-		if (args.since !== undefined) {
-			params.rcend = args.since;
+		if (since !== undefined) {
+			params.rcend = since;
 		}
-		if (args.until !== undefined) {
-			params.rcstart = args.until;
+		if (until !== undefined) {
+			params.rcstart = until;
 		}
 		if (args.namespace && args.namespace.length > 0) {
 			params.rcnamespace = args.namespace.join('|');
 		}
-		if (args.user !== undefined) {
-			params.rcuser = args.user;
+		if (user !== undefined) {
+			params.rcuser = user;
 		}
-		if (args.excludeUser !== undefined) {
-			params.rcexcludeuser = args.excludeUser;
+		if (excludeUser !== undefined) {
+			params.rcexcludeuser = excludeUser;
 		}
-		if (args.tag !== undefined) {
-			params.rctag = args.tag;
+		if (tag !== undefined) {
+			params.rctag = tag;
 		}
 		const rcshow = buildRcShow(args);
 		if (rcshow !== undefined) {
 			params.rcshow = rcshow;
 		}
-		if (args.continue !== undefined) {
-			params.rccontinue = args.continue;
+		if (continueToken !== undefined) {
+			params.rccontinue = continueToken;
 		}
 
 		const response = await mwn.request(params);
